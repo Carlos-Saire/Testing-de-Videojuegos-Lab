@@ -1,87 +1,141 @@
+using System;
+using System.Collections;
 using UnityEngine;
-using UnityEngine.UI;
-
+using UnityEngine.InputSystem;
 public class GameManager : MonoBehaviour
 {
+    [SerializeField] private PlayerController player;
+    private bool gameOver;
 
-    static public GameManager Instance;
-    [SerializeField] private float Point;
-    [SerializeField] private Slider SliderPoint;
-    [SerializeField] private GameObject[] estrellas;
-    [SerializeField] private GameObject win;
-    [SerializeField] private DoSetting defeat;
-    private float currentPoint;
+    [Header("DoTween")]
+    [SerializeField] private DoFade fade;
+    [SerializeField] private DoFade DoTextFade;
+    [SerializeField] private DoFade DoLifePlayer;
+    [SerializeField] private DoUI DoGameOver;
+    [SerializeField] private DoUI DoWin;
 
-    [Header("Floor")]
-    [SerializeField] private GameObject[] floor;
-    private void Awake()
-    {
-        if (Instance == null)
-        {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
-    }
+    [Header("Input")]
+    [SerializeField] private PlayerInput input;
+
+    [Header("SO")]
+    [SerializeField] private PointsCounterSO pointsCounterSO;
+    private float time;
+
+    [Header("Cameras")]
+    [SerializeField] private GameObject CameraIntro;
+    [SerializeField] string[] dialogo;
+
+    [Header("Text")]
+    [SerializeField] private TextController textdialogo;
+    private int index=0;
+
+    [SerializeField] private MostrarPuntaje mostrar;
+
+
     private void Start()
     {
-        TimeGme(1);
-        SliderPoint.maxValue = Point;
+        TimeGame(1);
+        CursorVisible(false);
+        CameraIntro.SetActive(true);
+        StartDialogue();
     }
-    public void TimeGme(float time)
+    private void Update()
+    {
+        time += Time.deltaTime;
+    }
+    private void StartDialogue()
+    {
+        StartCoroutine(CorrytinDialogo());
+    }
+    private IEnumerator CorrytinDialogo()
+    {
+        yield return new WaitForSeconds(1.5f);
+        try
+        {
+            textdialogo.Print(dialogo[index]);
+            ++index;
+        }
+        catch (IndexOutOfRangeException)
+        {
+            DoTextFade.FadeOut();
+            CameraIntro.SetActive(false);
+            input.enabled = true;
+            DoLifePlayer.FadeIN();
+            fade.FadeOut();
+        }
+    }
+    public void Open(InputAction.CallbackContext context)
+    {
+        if (context.performed)
+        {
+            input.enabled = false;
+            CursorVisible(true);
+            TimeGame(0);
+        }
+    }
+
+    public void Close()
+    {
+        CursorVisible(false);
+        TimeGame(1);
+        input.enabled = true;
+    }
+
+    public void TimeGame(float time)
     {
         Time.timeScale = time;
     }
-    private void GameOver()
+
+    private void GameOver(int life)
     {
-        TimeGme(0);
-        defeat.OpenSetting();
+        if (life<=0&&!gameOver)
+        {
+            CursorVisible(true);
+            gameOver = true;
+            fade.FadeIN();
+            StartCoroutine(Fade(DoGameOver));
+            input.enabled = false;
+        }
     }
     private void Win()
     {
-        win.SetActive(true);
-        TimeGme(0);
+        CursorVisible(true);
+        fade.FadeIN();
+        StartCoroutine(Fade(DoWin));
+        input.enabled = false;
+        pointsCounterSO.Add((int)time);
+        mostrar.Inprimir();
+    }
+    private IEnumerator Fade(DoUI doUI)
+    {
+        yield return new WaitForSeconds(fade.TimeFadeIN);
+        doUI.Open();
+        TimeGame(0);
     }
     private void OnEnable()
     {
-        PlayerController.eventDefeat+=GameOver;
-        PlayerController.eventWin += Win;
+        player.eventLife += GameOver;
+        textdialogo.finishingWriting += StartDialogue;
+        Finished.eventFinished += Win;
     }
     private void OnDisable()
     {
-        PlayerController.eventDefeat-=GameOver;
-        PlayerController.eventWin -= Win;
-    }
-    public void AddPoint()
-    {
-        ++currentPoint;
-        SliderPoint.value = currentPoint;
-        if (currentPoint == Point)
-        {
-            estrellas[1].SetActive(true);
-            estrellas[0].SetActive(true);
-        }
-        else if(currentPoint>=Point/2)
-        {
-            estrellas[0].SetActive(true);
-        }
+        player.eventLife -= GameOver;
+        textdialogo.finishingWriting -= StartDialogue;
+        Finished.eventFinished -= Win;
     }
 
-    public void ActiveFloor()
+    private void CursorVisible(bool visible)
     {
-        for(int i = 0; i < floor.Length; i++)
+        if (visible)
         {
-            floor[i].gameObject.SetActive(true);
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
-    }
-
-    public void DesactiveFloor()
-    {
-        for (int i = 0; i < floor.Length; i++)
+        else
         {
-            floor[i].gameObject.SetActive(false);
+            Cursor.visible = false;
+            Cursor.lockState = CursorLockMode.Locked;
         }
     }
 }

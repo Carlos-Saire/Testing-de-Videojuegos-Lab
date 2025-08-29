@@ -1,120 +1,102 @@
-using Unity.Mathematics;
-using UnityEngine;
 using System;
-
-[RequireComponent(typeof(Rigidbody2D))]
-[RequireComponent(typeof(CircleCollider2D))]
+using UnityEngine;
 public class PlayerController : MonoBehaviour
 {
+
     [Header("Player")]
-    private Rigidbody2D RB2D;
-    private float horizontal;
-    [SerializeField] private float forceJump;
-    [SerializeField] private float forceSpeed;
-    private bool isjump;
-    [SerializeField] private float deceleration = 5.0f;
+    private Rigidbody Rb;
+    private Vector2 movement;
+    [SerializeField] private float speed;
+    public float Speed { get { return speed; }set { speed = value; } }
+    public int life;
 
-    [Header("Raycast")]
-    [SerializeField] private LayerMask layer;
-
-    [Header("Limit")]
-    [SerializeField] private float minX;
-    [SerializeField] private float maxX;
-    private float currentX;
-    [SerializeField] private float minY;
-    [SerializeField] private float maxY;
-    private float currentY;
+    private Transform cameraMain;
+    private Vector3 forward;
+    private Vector3 right;
+    private Vector3 moveDirection;
 
     [Header("Sound")]
-    [SerializeField] private AudioClipSO audioClip;
-    [SerializeField] private AudioClipSO audioJump;
+    [SerializeField] private AudioSource audioSource;
 
-    static public event Action eventWin;
-    static public event Action eventDefeat;
+    [Header("Raycast")]
+    [SerializeField] LayerMask groundLayer;
+    [SerializeField] float jumpForce;
+    private bool isjump;
+
+    public event Action<int> eventLife;
 
     private void Awake()
     {
-        RB2D = GetComponent<Rigidbody2D>();
+        Rb = GetComponent<Rigidbody>();
+        cameraMain = Camera.main.transform;
     }
-
-    private void Update()
-    {
-        horizontal = Input.GetAxis("Horizontal");
-
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            isjump = true;
-            audioJump.PlayOneShoot();
-        }
-        else if (Input.GetKeyUp(KeyCode.Space)) 
-        {
-            isjump = false;
-        }
-
-        currentY=math.clamp(transform.position.y,minY,maxY);
-        currentX=math.clamp(transform.position.x,minX,maxX);
-        transform.position=new Vector2 (currentX,currentY);
-
-        if (transform.position.y == minY)
-        {
-            ActiveEvenDefeat();
-        }
-    }
-
     private void FixedUpdate()
     {
-        if(horizontal!=0)
-        {
-            RB2D.AddForce(new Vector2(horizontal * forceSpeed, 0),ForceMode2D.Force);
-        }
-        else
-        {
-            if (Mathf.Abs(RB2D.linearVelocity.x) > 0.1f) 
-            {
-                float decelerationForce = deceleration * Mathf.Sign(RB2D.linearVelocity.x);
-                RB2D.AddForce(new Vector2(-decelerationForce, 0), ForceMode2D.Force);
-            }
-            else
-            {
-                RB2D.linearVelocity = new Vector2(0, RB2D.linearVelocity.y);
-            }
-        }
-
-        if (Physics2D.Raycast(transform.position, Vector3.down, 1.03f, layer))
+        Rb.linearVelocity = new Vector3(moveDirection.x * speed, Rb.linearVelocity.y, moveDirection.z * speed);
+        if (Physics.Raycast(transform.position, Vector3.down, 1.03f, groundLayer))
         {
             if (isjump)
             {
-                RB2D.AddForce(new Vector3(0, forceJump, 0), ForceMode2D.Impulse);
+                Rb.AddForce(new Vector3(0, jumpForce, 0), ForceMode.Impulse);
+            }
+        }    
+    }
+    private void Update()
+    {
+        forward = cameraMain.forward;
+        right = cameraMain.right;
+        moveDirection = forward * movement.y + right * movement.x;
+
+    }
+    private void ActiveEventLife()
+    {
+        eventLife?.Invoke(life);
+    }
+
+    public void MovementPlayer(Vector2 value)
+    {
+        movement = value;
+        if (movement != Vector2.zero)
+        {
+            if (!audioSource.isPlaying)
+            {
+                audioSource.Play();
             }
         }
-    }
-    private void OnTriggerEnter2D(Collider2D collision)
-    {
-        if (collision.CompareTag("Point"))
+        else
         {
-            GameManager.Instance.AddPoint();
-            audioClip.PlayOneShoot();
-            Destroy(collision.gameObject);
+            audioSource.Stop();
         }
-    }
-    private void OnCollisionEnter2D(Collision2D collision)
-    {
-        if (collision.gameObject.CompareTag("Puas"))
-        {
-            ActiveEvenDefeat();
+    } 
 
-        }
-        if (collision.gameObject.CompareTag("Meta"))
+    public void Jump(bool value)
+    {
+        isjump = value;
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("ManoEnemy"))
         {
-            ActiveEventWin();
+            UpdateLife(-5);
         }
     }
-    private void ActiveEventWin()
+    public void UpdateLife(int life)
     {
-        eventWin?.Invoke();
+        this.life += life;
+        ActiveEventLife();
     }
-    private void ActiveEvenDefeat()
+
+    private void OnEnable()
     {
-        eventDefeat?.Invoke();
+        InputReader.movementPlayer += MovementPlayer;
+        InputReader.jump += Jump;
     }
+
+    private void OnDisable()
+    {
+        InputReader.movementPlayer -= MovementPlayer;
+        InputReader.jump -= Jump;
+    }
+
 }

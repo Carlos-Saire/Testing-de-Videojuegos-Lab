@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using UnityEngine.Audio;
 
@@ -17,11 +16,23 @@ public class SettingSO : ScriptableObject
     [Range(0f, 1f)][SerializeField] private float musicVolume;
     [Range(0f, 1f)][SerializeField] private float sfxVolume;
 
+    [Header("Sensitivity")]
+    [Range(0f, 1f)][SerializeField] private float Sensibility;
+
+    public void LoadSetting()
+    {
+        SetMasterVolume(masterVolume);
+        SetMusicVolume(musicVolume);
+        SetSFXVolume(sfxVolume);
+        SetSensibility(Sensibility);
+    }
     public void SetMasterVolume(float volume)
     {
         masterVolume = Mathf.Clamp(volume, 0.0001f, 1f);
         mainMixer.SetFloat(masterKey, Mathf.Log10(volume) * 20);
+
     }
+
     public void SetMusicVolume(float volume)
     {
         musicVolume = Mathf.Clamp(volume, 0.0001f, 1f);
@@ -33,11 +44,11 @@ public class SettingSO : ScriptableObject
         sfxVolume = Mathf.Clamp(volume, 0.0001f, 1f);
         mainMixer.SetFloat(sfxKey, Mathf.Log10(volume) * 20);
     }
-    public void LoadVolumes()
+
+    public void SetSensibility(float sensibility)
     {
-        SetMasterVolume(masterVolume);
-        SetMusicVolume(musicVolume);
-        SetSFXVolume(sfxVolume);
+        this.Sensibility = Mathf.Clamp(sensibility, 0.0001f, 1f);
+        
     }
     public float GetMasterVolume()
     {
@@ -53,5 +64,9 @@ public class SettingSO : ScriptableObject
     {
         return sfxVolume;
     }
-    
+
+    public float GetSensibility()
+    {
+        return Sensibility;
+    }
 }
